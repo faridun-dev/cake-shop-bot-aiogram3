@@ -16,7 +16,7 @@ async def list_menu(page: int = 0) -> InlineKeyboardMarkup:
     paginated_cakes = cakes[start_idx:end_idx]
 
     for cake in paginated_cakes:
-        keyboard.add(InlineKeyboardButton(text=cake, callback_data="order_cake"))
+        keyboard.add(InlineKeyboardButton(text=cake["name"], callback_data=f"view_cake_{cakes.index(cake)}"))
 
     keyboard.adjust(1)
 
@@ -32,3 +32,15 @@ async def list_menu(page: int = 0) -> InlineKeyboardMarkup:
     keyboard.row(InlineKeyboardButton(text="🏠 В главное меню", callback_data="back_to_start"))
 
     return keyboard.as_markup()
+
+
+async def view_cake(cake_index: int) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+
+    order_button = InlineKeyboardButton(text="✅ Оформить", callback_data=f"order_cake_{cake_index}")
+    back_to_menu_button = InlineKeyboardButton(text="🍰 Назад к меню", callback_data=f"list_menu")
+
+    keyboard.add(order_button)
+    keyboard.add(back_to_menu_button)
+
+    return keyboard.adjust(2).as_markup()
