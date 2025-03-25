@@ -29,6 +29,6 @@ async def list_menu(page: int = 0) -> InlineKeyboardMarkup:
     if nav_buttons:
         keyboard.row(*nav_buttons)
 
-    keyboard.add(InlineKeyboardButton(text="🏠 В главное меню", callback_data="back_to_start"))
+    keyboard.row(InlineKeyboardButton(text="🏠 В главное меню", callback_data="back_to_start"))
 
     return keyboard.as_markup()
