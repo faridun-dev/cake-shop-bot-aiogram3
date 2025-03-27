@@ -1,9 +1,9 @@
-from aiogram import Dispatcher, html
+from aiogram import Dispatcher, html, Bot
 from presentation import keyboards as kb
 from presentation.messages import START_MESSAGE
 from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
-from app.config import cakes, T_BANK_PHOTO_URL
+from app.config import cakes, T_BANK_PHOTO_URL, ADMIN_CHAT_ID, TOKEN
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters.state import StateFilter
@@ -46,6 +46,8 @@ async def order_cake_callback(callback: CallbackQuery, state: FSMContext):
     await state.set_state(OrderCakeState.waiting_for_quantity)
 
 
+bot = Bot(token=TOKEN)
+
 async def process_quantity(message: Message, state: FSMContext):
     user_data = await state.get_data()
     cake_index = user_data.get("cake_index")
@@ -63,16 +65,30 @@ async def process_quantity(message: Message, state: FSMContext):
     cake_name = cake["name"]
     price = cake["price"]
     total_price = quantity * price
+    order_id = randint(10000, 99999)
+
     description = (f"{html.bold('Ваш заказ:')}\n"
                    f"{html.bold('Название')}: {cake_name}\n"
                    f"{html.bold(f'Цена за {cake['per']}')}: {price} руб\n"
                    f"{html.bold('Количество')}: {quantity} {cake['per']}\n\n"
                    f"{html.bold('Общая стоимость')}: {total_price} руб\n\n"
-                   f"{html.bold(f"Переведите общую стоимость на указанный номер с комментарием ID {randint(10000, 99999)}:")} +79017150031 - Т-Банк 🟡⚫")
+                   f"{html.bold(f'Переведите общую стоимость на указанный номер с комментарием ID {order_id}:')} +79017150031 - Т-Банк 🟡⚫")
 
+    # Send order details to the user
     await message.answer_photo(T_BANK_PHOTO_URL, description)
 
-    await state.clear() 
+    # Send order details to the ADMIN
+    admin_message = (f"🛒 *Новый заказ!*\n\n"
+                     f"👤 *Пользователь*: [{message.from_user.full_name}](tg://user?id={message.from_user.id})\n"
+                     f"📦 *Название*: {cake_name}\n"
+                     f"💰 *Цена за {cake['per']}*: {price} руб\n"
+                     f"📏 *Количество*: {quantity} {cake['per']}\n"
+                     f"💵 *Общая стоимость*: {total_price} руб\n"
+                     f"🆔 *ID заказа*: {order_id}")
+
+    await bot.send_message(ADMIN_CHAT_ID, admin_message, parse_mode="Markdown")
+
+    await state.clear()
 
         
 
