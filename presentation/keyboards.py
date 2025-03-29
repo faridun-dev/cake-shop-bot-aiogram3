@@ -44,3 +44,17 @@ async def view_cake(cake_index: int) -> InlineKeyboardMarkup:
     keyboard.add(back_to_menu_button)
 
     return keyboard.adjust(2).as_markup()
+
+async def order_status(status: bool, order_id: int) -> InlineKeyboardMarkup:
+    keyboard = InlineKeyboardBuilder()
+    
+    paid_emoji = "✅" if status else "⚪"
+    unpaid_emoji = "❌" if not status else "⚪"
+
+    button_paid = InlineKeyboardButton(text=f"{paid_emoji} Оплачено", callback_data=f"order_paid_{order_id}")
+    button_unpaid = InlineKeyboardButton(text=f"{unpaid_emoji} Не оплачено", callback_data=f"order_unpaid_{order_id}")
+
+    keyboard.row(button_paid, button_unpaid)
+
+    return keyboard.as_markup()
+

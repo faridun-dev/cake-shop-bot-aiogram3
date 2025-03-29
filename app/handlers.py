@@ -1,3 +1,4 @@
+import sqlite3
 from aiogram import Dispatcher, html, Bot
 from presentation import keyboards as kb
 from presentation.messages import START_MESSAGE
@@ -8,6 +9,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters.state import StateFilter
 from random import randint
+from infrastructure.database import BotDatabase
 
 
 class OrderCakeState(StatesGroup):
@@ -32,6 +34,26 @@ async def view_cake_callback(callback: CallbackQuery):
 async def back_to_start_callback(callback: CallbackQuery):
     await callback.message.edit_text(START_MESSAGE , reply_markup=kb.start)
 
+async def order_unpaid_callback(callback: CallbackQuery):
+    db = BotDatabase()
+    order_id = int(callback.data[-5:])
+
+    db.update_order_status(order_id, False)
+    
+    new_status = False 
+
+    await callback.message.edit_reply_markup(reply_markup=await kb.order_status(new_status, order_id))
+
+async def order_paid_callback(callback: CallbackQuery):
+    db = BotDatabase()
+    order_id = int(callback.data[-5:])
+
+    db.update_order_status(order_id, True)
+    
+    new_status = True 
+
+    await callback.message.edit_reply_markup(reply_markup=await kb.order_status(new_status, order_id))
+
 async def order_cake_callback(callback: CallbackQuery, state: FSMContext):
     cake_index = int(callback.data.split("_")[-1])
     cake = cakes[cake_index]
@@ -49,6 +71,7 @@ async def order_cake_callback(callback: CallbackQuery, state: FSMContext):
 bot = Bot(token=TOKEN)
 
 async def process_quantity(message: Message, state: FSMContext):
+    db = BotDatabase()
     user_data = await state.get_data()
     cake_index = user_data.get("cake_index")
 
@@ -65,19 +88,24 @@ async def process_quantity(message: Message, state: FSMContext):
     cake_name = cake["name"]
     price = cake["price"]
     total_price = quantity * price
-    order_id = randint(10000, 99999)
 
-    description = (f"{html.bold('Ваш заказ:')}\n"
-                   f"{html.bold('Название')}: {cake_name}\n"
-                   f"{html.bold(f'Цена за {cake['per']}')}: {price} руб\n"
-                   f"{html.bold('Количество')}: {quantity} {cake['per']}\n\n"
-                   f"{html.bold('Общая стоимость')}: {total_price} руб\n\n"
-                   f"{html.bold(f'Переведите общую стоимость на указанный номер с комментарием ID {order_id}:')} +79017150031 - Т-Банк 🟡⚫")
+    while True: 
+        order_id = randint(10000, 99999)
+        try:
+            db.add_order((order_id, f"{message.from_user.full_name}", cake_name, int(quantity), total_price, False))
+            break  
+        except sqlite3.IntegrityError:
+            continue  
 
-    # Send order details to the user
+    description = (f"🛒 {html.bold('Ваш заказ:')}\n"
+                   f"📦 {html.bold('Название')}: {cake_name}\n"
+                   f"💰 {html.bold(f'Цена за {cake['per']}')}: {price} руб\n"
+                   f"📏 {html.bold('Количество')}: {quantity} {cake['per']}\n\n"
+                   f"💵 {html.bold('Общая стоимость')}: {total_price} руб\n\n"
+                   f"{html.bold(f'Переведите общую стоимость на указанный номер с комментарием 🆔 {order_id}:')} +79017150031 - Т-Банк 🟡⚫")
+
     await message.answer_photo(T_BANK_PHOTO_URL, description)
 
-    # Send order details to the ADMIN
     admin_message = (f"🛒 *Новый заказ!*\n\n"
                      f"👤 *Пользователь*: [{message.from_user.full_name}](tg://user?id={message.from_user.id})\n"
                      f"📦 *Название*: {cake_name}\n"
@@ -86,7 +114,7 @@ async def process_quantity(message: Message, state: FSMContext):
                      f"💵 *Общая стоимость*: {total_price} руб\n"
                      f"🆔 *ID заказа*: {order_id}")
 
-    await bot.send_message(ADMIN_CHAT_ID, admin_message, parse_mode="Markdown")
+    await bot.send_message(ADMIN_CHAT_ID, admin_message, parse_mode="Markdown", reply_markup=await kb.order_status(False, order_id))
 
     await state.clear()
 
@@ -99,5 +127,8 @@ def register_handlers(dp: Dispatcher):
     dp.callback_query.register(paginate_menu_callback, lambda c: c.data.startswith("menu_page_"))
     dp.callback_query.register(view_cake_callback, lambda c: c.data.startswith("view_cake_"))
     dp.callback_query.register(order_cake_callback, lambda c: c.data.startswith("order_cake_"))
+    dp.callback_query.register(order_paid_callback, lambda c: c.data.startswith("order_paid_"))
+    dp.callback_query.register(order_unpaid_callback, lambda c: c.data.startswith("order_unpaid_"))
+
 
     dp.message.register(process_quantity, StateFilter(OrderCakeState.waiting_for_quantity))
