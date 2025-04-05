@@ -1,2 +1,2 @@
-aiogram
-dotenv
+aiogram  # Основная библиотека для создания Telegram-ботов на базе asyncio
+python-dotenv  # Библиотека для загрузки переменных окружения из файла .env
