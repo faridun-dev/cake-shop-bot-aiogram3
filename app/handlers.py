@@ -1,26 +1,26 @@
 # Импортируем модуль для работы с базой данных SQLite
 import sqlite3
 
+# Импортируем функцию для генерации случайного ID заказа
+from random import randint
+
 # Импортируем необходимые компоненты из aiogram
-from aiogram import Dispatcher, html, Bot
+from aiogram import Bot, Dispatcher, html
 from aiogram.filters import CommandStart
-from aiogram.types import Message, CallbackQuery
+from aiogram.filters.state import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.filters.state import StateFilter
-
-# Импортируем клавиатуры и сообщения из папки presentation
-from presentation import keyboards as kb
-from presentation.messages import START_MESSAGE
+from aiogram.types import CallbackQuery, Message
 
 # Импортируем данные из конфигурации
-from app.config import cakes, T_BANK_PHOTO_URL, ADMIN_CHAT_ID, TOKEN
+from app.config import ADMIN_CHAT_ID, T_BANK_PHOTO_URL, TOKEN, cakes
 
 # Импортируем модуль для работы с базой данных
 from infrastructure.database import BotDatabase
 
-# Импортируем функцию для генерации случайного ID заказа
-from random import randint
+# Импортируем клавиатуры и сообщения из папки presentation
+from presentation import keyboards as kb
+from presentation.messages import START_MESSAGE
 
 
 # Класс состояний для FSM (машины состояний), используемый при заказе торта
@@ -179,7 +179,7 @@ async def process_quantity(message: Message, state: FSMContext):
     # Уведомление администратору о новом заказе
     admin_message = (
         f"🛒 *Новый заказ!*\n\n"
-        f"👤 *Пользователь*: [{message.from_user.full_name}](tg://user?id={message.from_user.id})\n"
+        f"👤 *Пользователь*: [{html.escape(message.from_user.full_name)}](tg://user?id={message.from_user.id})\n"
         f"📦 *Название*: {cake_name}\n"
         f"💰 *Цена за {cake['per']}*: {price} руб\n"
         f"📏 *Количество*: {quantity} {cake['per']}\n"
@@ -201,27 +201,37 @@ async def process_quantity(message: Message, state: FSMContext):
 # Регистрация всех хендлеров в диспетчере
 def register_handlers(dp: Dispatcher):
     dp.message.register(command_start_handler, CommandStart())
-    dp.callback_query.register(list_menu_callback, lambda c: c.data == "list_menu")
     dp.callback_query.register(
-        back_to_start_callback, lambda c: c.data == "back_to_start"
+        list_menu_callback,
+        lambda c: c.data == "list_menu",
     )
     dp.callback_query.register(
-        paginate_menu_callback, lambda c: c.data.startswith("menu_page_")
+        back_to_start_callback,
+        lambda c: c.data == "back_to_start",
     )
     dp.callback_query.register(
-        view_cake_callback, lambda c: c.data.startswith("view_cake_")
+        paginate_menu_callback,
+        lambda c: c.data.startswith("menu_page_"),
     )
     dp.callback_query.register(
-        order_cake_callback, lambda c: c.data.startswith("order_cake_")
+        view_cake_callback,
+        lambda c: c.data.startswith("view_cake_"),
     )
     dp.callback_query.register(
-        order_paid_callback, lambda c: c.data.startswith("order_paid_")
+        order_cake_callback,
+        lambda c: c.data.startswith("order_cake_"),
     )
     dp.callback_query.register(
-        order_unpaid_callback, lambda c: c.data.startswith("order_unpaid_")
+        order_paid_callback,
+        lambda c: c.data.startswith("order_paid_"),
+    )
+    dp.callback_query.register(
+        order_unpaid_callback,
+        lambda c: c.data.startswith("order_unpaid_"),
     )
 
     # Регистрируем обработчик ввода количества в состоянии ожидания
     dp.message.register(
-        process_quantity, StateFilter(OrderCakeState.waiting_for_quantity)
+        process_quantity,
+        StateFilter(OrderCakeState.waiting_for_quantity),
     )
