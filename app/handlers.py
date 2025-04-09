@@ -35,13 +35,19 @@ async def command_start_handler(message: Message):
 
 # Обработчик кнопки "Ассортимент"
 async def list_menu_callback(callback: CallbackQuery):
-    await callback.message.edit_text("Вот наш ассортимент кондитерских изделий:", reply_markup=await kb.list_menu())
+    await callback.message.edit_text(
+        "Вот наш ассортимент кондитерских изделий:",
+        reply_markup=await kb.list_menu(),
+    )
 
 
 # Обработчик кнопки пагинации
 async def paginate_menu_callback(callback: CallbackQuery):
     page = int(callback.data.split("_")[-1])
-    await callback.message.edit_text("Вот наш ассортимент кондитерских изделий:", reply_markup=await kb.list_menu(page))
+    await callback.message.edit_text(
+        "Вот наш ассортимент кондитерских изделий:",
+        reply_markup=await kb.list_menu(page),
+    )
 
 
 # Обработчик просмотра конкретного торта
@@ -49,14 +55,17 @@ async def view_cake_callback(callback: CallbackQuery):
     cake_index = int(callback.data.split("_")[-1])
     cake = cakes[cake_index]
     await callback.message.edit_text(
-        f"{html.bold('Название')}: {cake['name']}\n{html.bold(f'Цена за {cake['per']}')}: {cake['price']} руб",
-        reply_markup=await kb.view_cake(cake_index)
+        f"{html.bold('Название')}: {cake['name']}\n{html.bold(f'Цена за {cake["per"]}')}: {cake['price']} руб",
+        reply_markup=await kb.view_cake(cake_index),
     )
 
 
 # Обработчик возврата к главному меню
 async def back_to_start_callback(callback: CallbackQuery):
-    await callback.message.edit_text(START_MESSAGE , reply_markup=kb.start)
+    await callback.message.edit_text(
+        START_MESSAGE,
+        reply_markup=kb.start,
+    )
 
 
 # Обработчик кнопки "Не оплачен" — меняет статус заказа на не оплачено
@@ -66,8 +75,13 @@ async def order_unpaid_callback(callback: CallbackQuery):
 
     db.update_order_status(order_id, False)  # Обновляем статус в базе
 
-    new_status = False 
-    await callback.message.edit_reply_markup(reply_markup=await kb.order_status(new_status, order_id))
+    new_status = False
+    await callback.message.edit_reply_markup(
+        reply_markup=await kb.order_status(
+            new_status,
+            order_id,
+        )
+    )
 
 
 # Обработчик кнопки "Оплачен" — меняет статус заказа на оплачен
@@ -75,10 +89,18 @@ async def order_paid_callback(callback: CallbackQuery):
     db = BotDatabase()
     order_id = int(callback.data[-5:])
 
-    db.update_order_status(order_id, True)
+    db.update_order_status(
+        order_id,
+        True,
+    )
 
-    new_status = True 
-    await callback.message.edit_reply_markup(reply_markup=await kb.order_status(new_status, order_id))
+    new_status = True
+    await callback.message.edit_reply_markup(
+        reply_markup=await kb.order_status(
+            new_status,
+            order_id,
+        ),
+    )
 
 
 # Обработчик начала заказа (после нажатия "Заказать")
@@ -125,10 +147,19 @@ async def process_quantity(message: Message, state: FSMContext):
     total_price = quantity * price
 
     # Генерация уникального ID заказа
-    while True: 
+    while True:
         order_id = randint(10000, 99999)
         try:
-            db.add_order((order_id, f"{message.from_user.full_name}", cake_name, int(quantity), total_price, False))
+            db.add_order(
+                (
+                    order_id,
+                    f"{message.from_user.full_name}",
+                    cake_name,
+                    int(quantity),
+                    total_price,
+                    False,
+                )
+            )
             break  # Если ID уникальный — выходим из цикла
         except sqlite3.IntegrityError:
             continue  # Иначе пробуем заново
@@ -137,7 +168,7 @@ async def process_quantity(message: Message, state: FSMContext):
     description = (
         f"🛒 {html.bold('Ваш заказ:')}\n"
         f"📦 {html.bold('Название')}: {cake_name}\n"
-        f"💰 {html.bold(f'Цена за {cake['per']}')}: {price} руб\n"
+        f"💰 {html.bold(f'Цена за {cake["per"]}')}: {price} руб\n"
         f"📏 {html.bold('Количество')}: {quantity} {cake['per']}\n\n"
         f"💵 {html.bold('Общая стоимость')}: {total_price} руб\n\n"
         f"{html.bold(f'Переведите общую стоимость на указанный номер с комментарием 🆔 {order_id}:')} +79017150031 - Т-Банк 🟡⚫"
@@ -160,7 +191,7 @@ async def process_quantity(message: Message, state: FSMContext):
         ADMIN_CHAT_ID,
         admin_message,
         parse_mode="Markdown",
-        reply_markup=await kb.order_status(False, order_id)
+        reply_markup=await kb.order_status(False, order_id),
     )
 
     # Очищаем состояние
@@ -170,13 +201,27 @@ async def process_quantity(message: Message, state: FSMContext):
 # Регистрация всех хендлеров в диспетчере
 def register_handlers(dp: Dispatcher):
     dp.message.register(command_start_handler, CommandStart())
-    dp.callback_query.register(list_menu_callback, lambda c : c.data == "list_menu")
-    dp.callback_query.register(back_to_start_callback, lambda c: c.data == "back_to_start")
-    dp.callback_query.register(paginate_menu_callback, lambda c: c.data.startswith("menu_page_"))
-    dp.callback_query.register(view_cake_callback, lambda c: c.data.startswith("view_cake_"))
-    dp.callback_query.register(order_cake_callback, lambda c: c.data.startswith("order_cake_"))
-    dp.callback_query.register(order_paid_callback, lambda c: c.data.startswith("order_paid_"))
-    dp.callback_query.register(order_unpaid_callback, lambda c: c.data.startswith("order_unpaid_"))
+    dp.callback_query.register(list_menu_callback, lambda c: c.data == "list_menu")
+    dp.callback_query.register(
+        back_to_start_callback, lambda c: c.data == "back_to_start"
+    )
+    dp.callback_query.register(
+        paginate_menu_callback, lambda c: c.data.startswith("menu_page_")
+    )
+    dp.callback_query.register(
+        view_cake_callback, lambda c: c.data.startswith("view_cake_")
+    )
+    dp.callback_query.register(
+        order_cake_callback, lambda c: c.data.startswith("order_cake_")
+    )
+    dp.callback_query.register(
+        order_paid_callback, lambda c: c.data.startswith("order_paid_")
+    )
+    dp.callback_query.register(
+        order_unpaid_callback, lambda c: c.data.startswith("order_unpaid_")
+    )
 
     # Регистрируем обработчик ввода количества в состоянии ожидания
-    dp.message.register(process_quantity, StateFilter(OrderCakeState.waiting_for_quantity))
+    dp.message.register(
+        process_quantity, StateFilter(OrderCakeState.waiting_for_quantity)
+    )
